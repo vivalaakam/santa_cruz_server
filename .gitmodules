@@ -1,3 +1,6 @@
 [submodule "parse"]
 	path = parse
 	url = git@github.com:vivalaakam/santa_cruz_server.git
+[submodule "proto"]
+	path = proto
+	url = git@github.com:vivalaakam/santa_cruz_server.git

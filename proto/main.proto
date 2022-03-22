@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package santa_cruz;
-
-import "exercise.proto";
-import "workout.proto";
-import "workout_repeat.proto";
