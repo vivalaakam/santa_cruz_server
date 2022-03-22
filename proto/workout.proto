@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package santa_cruz;
+
+service WorkoutService {
+  rpc GetWorkout (GetWorkoutRequest) returns (Workout);
+  rpc CreateWorkout (CreateWorkoutRequest) returns (Workout);
+  rpc UpdateWorkout (UpdateWorkoutRequest) returns (Workout);
+  rpc DeleteWorkout (DeleteWorkoutRequest) returns (DeleteWorkoutResponse);
+  rpc GetWorkouts (GetWorkoutsRequest) returns (GetWorkoutsResponse);
+}
+
+enum WorkoutStatus {
+  UNKNOWN = 0;
+  IN_PROGRESS = 1;
+  FINISHED = 2;
+}
+
+message GetWorkoutRequest {
+  int32 id = 1;
+}
+
+message GetWorkoutsRequest {}
+
+message GetWorkoutsResponse {
+  repeated Workout workouts = 1;
+}
+
+message CreateWorkoutRequest {}
+
+message UpdateWorkoutRequest {
+  int32 id = 1;
+  optional WorkoutStatus status = 2;
+  optional string day = 3;
+}
+
+message DeleteWorkoutRequest {
+  int32 id = 1;
+}
+
+message DeleteWorkoutResponse {}
+
+message Workout {
+  int32 id = 1;
+  WorkoutStatus status = 2;
+  string day = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
