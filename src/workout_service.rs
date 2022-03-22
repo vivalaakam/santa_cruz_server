@@ -1,5 +1,7 @@
-use chrono::{NaiveDateTime, Utc};
-use sqlx::SqlitePool;
+use std::str::FromStr;
+
+use chrono::{DateTime, NaiveDateTime, Utc};
+use sqlx::PgPool;
 use tonic::{Request, Response, Status};
 
 use crate::proto::proto;
@@ -9,13 +11,13 @@ use crate::proto::proto::santa_cruz::{
 };
 
 pub struct WorkoutService {
-    pool: SqlitePool,
+    pool: PgPool,
 }
 
-type WorkoutRow = (i32, i32, NaiveDateTime, NaiveDateTime, NaiveDateTime);
+type WorkoutRow = (i32, i32, DateTime<Utc>, DateTime<Utc>, DateTime<Utc>);
 
 impl WorkoutService {
-    pub fn new(pool: &SqlitePool) -> WorkoutService {
+    pub fn new(pool: &PgPool) -> WorkoutService {
         WorkoutService { pool: pool.clone() }
     }
 
@@ -23,17 +25,17 @@ impl WorkoutService {
         let row: WorkoutRow = sqlx::query_as(
             r#"SELECT id, status, day, created_at, updated_at FROM workouts WHERE id = $1"#,
         )
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await
-            .expect("get_workout_by_id error");
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .expect("get_workout_by_id error");
 
         Workout {
             id: row.0,
             status: row.1,
-            day: row.2.to_string(),
-            created_at: row.3.to_string(),
-            updated_at: row.4.to_string(),
+            day: row.2.to_rfc3339(),
+            created_at: row.3.to_rfc3339(),
+            updated_at: row.4.to_rfc3339(),
         }
     }
 }
@@ -56,20 +58,16 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
     ) -> Result<Response<Workout>, Status> {
         let CreateWorkoutRequest {} = &request.into_inner();
 
-        let id = sqlx::query(r#"INSERT INTO workouts ( status, day ) VALUES ( $1 , $2 )"#)
-            .bind(0)
-            .bind(
-                Utc::now()
-                    .naive_utc()
-                    .format("%Y-%m-%d 00:00:00")
-                    .to_string(),
-            )
-            .execute(&self.pool)
-            .await
-            .expect("create_workout error")
-            .last_insert_rowid();
+        let rec: (i32,) = sqlx::query_as(
+            r#"INSERT INTO workouts ( status, day ) VALUES ( $1 , $2 ) RETURNING id"#,
+        )
+        .bind(0)
+        .bind(Utc::now())
+        .fetch_one(&self.pool)
+        .await
+        .expect("create_workout error");
 
-        let reply = self.get_workout_by_id(id as i32).await;
+        let reply = self.get_workout_by_id(rec.0 as i32).await;
         Ok(Response::new(reply))
     }
 
@@ -85,19 +83,11 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
                 None => original.status,
                 Some(val) => *val,
             })
-            .bind(match day {
+            .bind(DateTime::parse_from_rfc3339(match day {
                 None => original.day,
-                Some(val) => NaiveDateTime::parse_from_str(val, "%Y-%m-%d %H:%M:%S")
-                    .expect("update_workout invalid day")
-                    .format("%Y-%m-%d 00:00:00")
-                    .to_string(),
-            })
-            .bind(
-                Utc::now()
-                    .naive_utc()
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string(),
-            )
+                Some(val) => val.to_string(),
+            }.as_str()).unwrap())
+            .bind(Utc::now())
             .bind(id)
             .execute(&self.pool)
             .await
@@ -137,9 +127,9 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
             .map(|row| Workout {
                 id: row.0,
                 status: row.1,
-                day: row.2.to_string(),
-                created_at: row.3.to_string(),
-                updated_at: row.4.to_string(),
+                day: row.2.to_rfc3339(),
+                created_at: row.3.to_rfc3339(),
+                updated_at: row.4.to_rfc3339(),
             })
             .collect();
 
