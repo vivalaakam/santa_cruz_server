@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
 
@@ -83,10 +81,16 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
                 None => original.status,
                 Some(val) => *val,
             })
-            .bind(DateTime::parse_from_rfc3339(match day {
-                None => original.day,
-                Some(val) => val.to_string(),
-            }.as_str()).unwrap())
+            .bind(
+                DateTime::parse_from_rfc3339(
+                    match day {
+                        None => original.day,
+                        Some(val) => val.to_string(),
+                    }
+                    .as_str(),
+                )
+                .unwrap(),
+            )
             .bind(Utc::now())
             .bind(id)
             .execute(&self.pool)
