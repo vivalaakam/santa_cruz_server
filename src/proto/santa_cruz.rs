@@ -153,6 +153,10 @@ pub struct UpdateWorkoutRequest {
     pub status: ::core::option::Option<i32>,
     #[prost(string, optional, tag = "3")]
     pub day: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub comment: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "7")]
+    pub rate: ::core::option::Option<i32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeleteWorkoutRequest {
@@ -173,6 +177,10 @@ pub struct Workout {
     pub created_at: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub updated_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub comment: ::prost::alloc::string::String,
+    #[prost(int32, tag = "7")]
+    pub rate: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
