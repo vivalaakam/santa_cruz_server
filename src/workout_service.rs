@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{Arguments, PgPool, postgres::PgArguments};
+use sqlx::{postgres::PgArguments, Arguments, PgPool};
 use tonic::{Request, Response, Status};
 
 use crate::proto::proto;
@@ -72,14 +72,14 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
     ) -> Result<Response<Workout>, Status> {
         let CreateWorkoutRequest {} = &request.into_inner();
 
-        let rec: (i32, ) = sqlx::query_as(
+        let rec: (i32,) = sqlx::query_as(
             r#"INSERT INTO workouts ( status, day ) VALUES ( $1 , $2 ) RETURNING id"#,
         )
-            .bind(0)
-            .bind(Utc::now())
-            .fetch_one(&self.pool)
-            .await
-            .expect("create_workout error");
+        .bind(0)
+        .bind(Utc::now())
+        .fetch_one(&self.pool)
+        .await
+        .expect("create_workout error");
 
         let reply = self.get_workout_by_id(rec.0 as i32).await;
         Ok(Response::new(reply))
@@ -175,9 +175,9 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
         let rows: Vec<WorkoutRow> = sqlx::query_as(
             r#"SELECT id, status, day, created_at, updated_at, rate, comment FROM workouts"#,
         )
-            .fetch_all(&self.pool)
-            .await
-            .expect("get_workout_by_id error");
+        .fetch_all(&self.pool)
+        .await
+        .expect("get_workout_by_id error");
 
         let workouts = rows.into_iter().map(|row| row.into()).collect();
 

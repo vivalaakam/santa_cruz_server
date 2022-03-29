@@ -1,17 +1,17 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{Arguments, PgPool, postgres::PgArguments};
 use sqlx::types::Json;
+use sqlx::{postgres::PgArguments, Arguments, PgPool};
 use tonic::{Request, Response, Status};
 
 use crate::proto::proto;
 use crate::proto::proto::santa_cruz;
+use crate::proto::proto::santa_cruz::workout_set_type::Type;
 use crate::proto::proto::santa_cruz::{
     CreateWorkoutSetRequest, DeleteWorkoutSetRequest, DeleteWorkoutSetResponse,
-    GetWorkoutSetRequest, GetWorkoutSetsRequest, GetWorkoutSetsResponse,
-    UpdateWorkoutSetRequest, WorkoutSet,
+    GetWorkoutSetRequest, GetWorkoutSetsRequest, GetWorkoutSetsResponse, UpdateWorkoutSetRequest,
+    WorkoutSet,
 };
-use crate::proto::proto::santa_cruz::workout_set_type::Type;
 
 pub struct WorkoutSetService {
     pool: PgPool,
@@ -66,7 +66,7 @@ impl From<santa_cruz::WorkoutSetType> for Json<WorkoutSetType> {
                 Type::Exercise(exercise) => WorkoutSetType::Exercise {
                     exercise_id: exercise.exercise_id,
                 },
-                Type::Unknown(_) => WorkoutSetType::Unknown {}
+                Type::Unknown(_) => WorkoutSetType::Unknown {},
             },
         };
 
@@ -150,7 +150,7 @@ impl proto::santa_cruz::workout_set_service_server::WorkoutSetService for Workou
             id,
             comment,
             position,
-            r#type
+            r#type,
         } = &request.into_inner();
         let original = self.get_workout_set_by_id(*id).await;
 
