@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use log::debug;
 use sqlx::{Arguments, PgPool, postgres::PgArguments};
 use tonic::{Request, Response, Status};
 
@@ -13,7 +12,15 @@ pub struct WorkoutService {
     pool: PgPool,
 }
 
-type WorkoutRow = (i32, i32, DateTime<Utc>, DateTime<Utc>, DateTime<Utc>, i32, String);
+type WorkoutRow = (
+    i32,
+    i32,
+    DateTime<Utc>,
+    DateTime<Utc>,
+    DateTime<Utc>,
+    i32,
+    String,
+);
 
 impl Into<Workout> for WorkoutRow {
     fn into(self) -> Workout {
@@ -82,7 +89,13 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
         &self,
         request: Request<UpdateWorkoutRequest>,
     ) -> Result<Response<Workout>, Status> {
-        let UpdateWorkoutRequest { id, status, day, rate, comment } = &request.into_inner();
+        let UpdateWorkoutRequest {
+            id,
+            status,
+            day,
+            rate,
+            comment,
+        } = &request.into_inner();
         let original = self.get_workout_by_id(*id).await;
 
         let mut arguments = PgArguments::default();
@@ -129,8 +142,6 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
             index = params.len() + 1
         );
 
-        debug!("{}", query);
-
         arguments.add(id);
 
         sqlx::query_with(&*query, arguments)
@@ -161,16 +172,14 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
         &self,
         _request: Request<GetWorkoutsRequest>,
     ) -> Result<Response<GetWorkoutsResponse>, Status> {
-        let rows: Vec<WorkoutRow> =
-            sqlx::query_as(r#"SELECT id, status, day, created_at, updated_at, rate, comment FROM workouts"#)
-                .fetch_all(&self.pool)
-                .await
-                .expect("get_workout_by_id error");
+        let rows: Vec<WorkoutRow> = sqlx::query_as(
+            r#"SELECT id, status, day, created_at, updated_at, rate, comment FROM workouts"#,
+        )
+            .fetch_all(&self.pool)
+            .await
+            .expect("get_workout_by_id error");
 
-        let workouts = rows
-            .into_iter()
-            .map(|row| row.into())
-            .collect();
+        let workouts = rows.into_iter().map(|row| row.into()).collect();
 
         Ok(Response::new(GetWorkoutsResponse { workouts }))
     }
