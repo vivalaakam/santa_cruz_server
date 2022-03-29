@@ -997,15 +997,336 @@ pub mod workout_set_service_server {
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetWorkoutRepeatRequest {
+    #[prost(int32, tag = "1")]
+    pub id: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetWorkoutRepeatsRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetWorkoutRepeatsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub workout_repeats: ::prost::alloc::vec::Vec<WorkoutRepeat>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateWorkoutRepeatRequest {
+    #[prost(int32, tag = "1")]
+    pub workout_set_id: i32,
+    #[prost(int32, tag = "2")]
+    pub exercise_id: i32,
+    #[prost(int32, optional, tag = "3")]
+    pub repeats: ::core::option::Option<i32>,
+    #[prost(double, optional, tag = "4")]
+    pub weight: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "5")]
+    pub time: ::core::option::Option<f64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateWorkoutRepeatRequest {
+    #[prost(int32, tag = "1")]
+    pub id: i32,
+    #[prost(int32, optional, tag = "2")]
+    pub repeats: ::core::option::Option<i32>,
+    #[prost(double, optional, tag = "3")]
+    pub weight: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "4")]
+    pub time: ::core::option::Option<f64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteWorkoutRepeatRequest {
+    #[prost(int32, tag = "1")]
+    pub id: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteWorkoutRepeatResponse {}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WorkoutRepeat {
     #[prost(int32, tag = "1")]
     pub id: i32,
-    #[prost(int32, tag = "2")]
-    pub workout_set_id: i32,
-    #[prost(int32, tag = "3")]
-    pub exercise_id: i32,
+    #[prost(string, tag = "2")]
+    pub created_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub updated_at: ::prost::alloc::string::String,
     #[prost(int32, tag = "4")]
+    pub workout_set_id: i32,
+    #[prost(int32, tag = "5")]
+    pub exercise_id: i32,
+    #[prost(int32, tag = "6")]
     pub repeats: i32,
-    #[prost(double, optional, tag = "5")]
+    #[prost(double, optional, tag = "7")]
     pub weight: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "8")]
+    pub time: ::core::option::Option<f64>,
+}
+#[doc = r" Generated server implementations."]
+pub mod workout_repeat_service_server {
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
+    use tonic::codegen::*;
+    #[doc = "Generated trait containing gRPC methods that should be implemented for use with WorkoutRepeatServiceServer."]
+    #[async_trait]
+    pub trait WorkoutRepeatService: Send + Sync + 'static {
+        async fn get_workout_repeat(
+            &self,
+            request: tonic::Request<super::GetWorkoutRepeatRequest>,
+        ) -> Result<tonic::Response<super::WorkoutRepeat>, tonic::Status>;
+        async fn create_workout_repeat(
+            &self,
+            request: tonic::Request<super::CreateWorkoutRepeatRequest>,
+        ) -> Result<tonic::Response<super::WorkoutRepeat>, tonic::Status>;
+        async fn update_workout_repeat(
+            &self,
+            request: tonic::Request<super::UpdateWorkoutRepeatRequest>,
+        ) -> Result<tonic::Response<super::WorkoutRepeat>, tonic::Status>;
+        async fn delete_workout_repeat(
+            &self,
+            request: tonic::Request<super::DeleteWorkoutRepeatRequest>,
+        ) -> Result<tonic::Response<super::DeleteWorkoutRepeatResponse>, tonic::Status>;
+        async fn get_workout_repeats(
+            &self,
+            request: tonic::Request<super::GetWorkoutRepeatsRequest>,
+        ) -> Result<tonic::Response<super::GetWorkoutRepeatsResponse>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct WorkoutRepeatServiceServer<T: WorkoutRepeatService> {
+        inner: _Inner<T>,
+        accept_compression_encodings: (),
+        send_compression_encodings: (),
+    }
+    struct _Inner<T>(Arc<T>);
+    impl<T: WorkoutRepeatService> WorkoutRepeatServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner);
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+            }
+        }
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for WorkoutRepeatServiceServer<T>
+    where
+        T: WorkoutRepeatService,
+        B: Body + Send + 'static,
+        B::Error: Into<StdError> + Send + 'static,
+    {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = Never;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            let inner = self.inner.clone();
+            match req.uri().path() {
+                "/santa_cruz.WorkoutRepeatService/GetWorkoutRepeat" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetWorkoutRepeatSvc<T: WorkoutRepeatService>(pub Arc<T>);
+                    impl<T: WorkoutRepeatService>
+                        tonic::server::UnaryService<super::GetWorkoutRepeatRequest>
+                        for GetWorkoutRepeatSvc<T>
+                    {
+                        type Response = super::WorkoutRepeat;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetWorkoutRepeatRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).get_workout_repeat(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetWorkoutRepeatSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.WorkoutRepeatService/CreateWorkoutRepeat" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateWorkoutRepeatSvc<T: WorkoutRepeatService>(pub Arc<T>);
+                    impl<T: WorkoutRepeatService>
+                        tonic::server::UnaryService<super::CreateWorkoutRepeatRequest>
+                        for CreateWorkoutRepeatSvc<T>
+                    {
+                        type Response = super::WorkoutRepeat;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateWorkoutRepeatRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).create_workout_repeat(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CreateWorkoutRepeatSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.WorkoutRepeatService/UpdateWorkoutRepeat" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateWorkoutRepeatSvc<T: WorkoutRepeatService>(pub Arc<T>);
+                    impl<T: WorkoutRepeatService>
+                        tonic::server::UnaryService<super::UpdateWorkoutRepeatRequest>
+                        for UpdateWorkoutRepeatSvc<T>
+                    {
+                        type Response = super::WorkoutRepeat;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateWorkoutRepeatRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).update_workout_repeat(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = UpdateWorkoutRepeatSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.WorkoutRepeatService/DeleteWorkoutRepeat" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteWorkoutRepeatSvc<T: WorkoutRepeatService>(pub Arc<T>);
+                    impl<T: WorkoutRepeatService>
+                        tonic::server::UnaryService<super::DeleteWorkoutRepeatRequest>
+                        for DeleteWorkoutRepeatSvc<T>
+                    {
+                        type Response = super::DeleteWorkoutRepeatResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteWorkoutRepeatRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).delete_workout_repeat(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DeleteWorkoutRepeatSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.WorkoutRepeatService/GetWorkoutRepeats" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetWorkoutRepeatsSvc<T: WorkoutRepeatService>(pub Arc<T>);
+                    impl<T: WorkoutRepeatService>
+                        tonic::server::UnaryService<super::GetWorkoutRepeatsRequest>
+                        for GetWorkoutRepeatsSvc<T>
+                    {
+                        type Response = super::GetWorkoutRepeatsResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetWorkoutRepeatsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).get_workout_repeats(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetWorkoutRepeatsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
+            }
+        }
+    }
+    impl<T: WorkoutRepeatService> Clone for WorkoutRepeatServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+            }
+        }
+    }
+    impl<T: WorkoutRepeatService> Clone for _Inner<T> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone())
+        }
+    }
+    impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:?}", self.0)
+        }
+    }
+    impl<T: WorkoutRepeatService> tonic::transport::NamedService for WorkoutRepeatServiceServer<T> {
+        const NAME: &'static str = "santa_cruz.WorkoutRepeatService";
+    }
 }
