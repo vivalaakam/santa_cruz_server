@@ -4,12 +4,46 @@ pub struct GetExerciseRequest {
     pub id: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetExercisesRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetExercisesResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub exercises: ::prost::alloc::vec::Vec<Exercise>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateExerciseRequest {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub description: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateExerciseRequest {
+    #[prost(int32, tag = "1")]
+    pub id: i32,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub description: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteExerciseRequest {
+    #[prost(int32, tag = "1")]
+    pub id: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteExerciseResponse {}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Exercise {
     #[prost(int32, tag = "1")]
     pub id: i32,
     #[prost(string, tag = "2")]
-    pub name: ::prost::alloc::string::String,
+    pub created_at: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
+    pub updated_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
     pub description: ::prost::alloc::string::String,
 }
 #[doc = r" Generated server implementations."]
@@ -23,6 +57,22 @@ pub mod exercise_service_server {
             &self,
             request: tonic::Request<super::GetExerciseRequest>,
         ) -> Result<tonic::Response<super::Exercise>, tonic::Status>;
+        async fn create_exercise(
+            &self,
+            request: tonic::Request<super::CreateExerciseRequest>,
+        ) -> Result<tonic::Response<super::Exercise>, tonic::Status>;
+        async fn update_exercise(
+            &self,
+            request: tonic::Request<super::UpdateExerciseRequest>,
+        ) -> Result<tonic::Response<super::Exercise>, tonic::Status>;
+        async fn delete_exercise(
+            &self,
+            request: tonic::Request<super::DeleteExerciseRequest>,
+        ) -> Result<tonic::Response<super::DeleteExerciseResponse>, tonic::Status>;
+        async fn get_exercises(
+            &self,
+            request: tonic::Request<super::GetExercisesRequest>,
+        ) -> Result<tonic::Response<super::GetExercisesResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct ExerciseServiceServer<T: ExerciseService> {
@@ -86,6 +136,141 @@ pub mod exercise_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetExerciseSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.ExerciseService/CreateExercise" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateExerciseSvc<T: ExerciseService>(pub Arc<T>);
+                    impl<T: ExerciseService>
+                        tonic::server::UnaryService<super::CreateExerciseRequest>
+                        for CreateExerciseSvc<T>
+                    {
+                        type Response = super::Exercise;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateExerciseRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).create_exercise(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CreateExerciseSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.ExerciseService/UpdateExercise" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateExerciseSvc<T: ExerciseService>(pub Arc<T>);
+                    impl<T: ExerciseService>
+                        tonic::server::UnaryService<super::UpdateExerciseRequest>
+                        for UpdateExerciseSvc<T>
+                    {
+                        type Response = super::Exercise;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateExerciseRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).update_exercise(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = UpdateExerciseSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.ExerciseService/DeleteExercise" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteExerciseSvc<T: ExerciseService>(pub Arc<T>);
+                    impl<T: ExerciseService>
+                        tonic::server::UnaryService<super::DeleteExerciseRequest>
+                        for DeleteExerciseSvc<T>
+                    {
+                        type Response = super::DeleteExerciseResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteExerciseRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).delete_exercise(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DeleteExerciseSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
+                            accept_compression_encodings,
+                            send_compression_encodings,
+                        );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/santa_cruz.ExerciseService/GetExercises" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetExercisesSvc<T: ExerciseService>(pub Arc<T>);
+                    impl<T: ExerciseService> tonic::server::UnaryService<super::GetExercisesRequest>
+                        for GetExercisesSvc<T>
+                    {
+                        type Response = super::GetExercisesResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetExercisesRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).get_exercises(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetExercisesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
                             accept_compression_encodings,
