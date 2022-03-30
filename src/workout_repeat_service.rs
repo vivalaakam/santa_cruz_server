@@ -53,7 +53,7 @@ impl WorkoutRepeatService {
                 SELECT id, created_at, updated_at, workout_set_id, exercise_id, repeats, weight, time
                 FROM workout_repeats
                 WHERE id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
-            "#, arguments
+            "#, arguments,
         )
             .fetch_one(pool)
             .await
@@ -242,9 +242,21 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
         let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
         let DeleteWorkoutRepeatRequest { id } = &request.get_ref();
 
-        sqlx::query(r#"DELETE FROM workout_repeats WHERE id = $1 AND (permissions ->> CAST($2 as text))::integer > 1"#)
-            .bind(id)
-            .bind(user_id)
+        let mut params = vec![
+            "((permissions ->> CAST($1 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)".to_string()
+        ];
+        let mut arguments = PgArguments::default();
+        arguments.add(user_id);
+
+        params.push(format!("id = ${index}", index = params.len() + 1));
+        arguments.add(id);
+
+        let query = format!(
+            r#"DELETE FROM workout_repeats WHERE {}"#,
+            params.join(" AND ")
+        );
+
+        sqlx::query_with(query.as_str(), arguments)
             .execute(&self.pool)
             .await
             .expect("update_workout_repeat error");
@@ -282,7 +294,7 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
             params.join(" AND ")
         );
 
-        let workout_repeats = sqlx::query_with(&*query, arguments)
+        let workout_repeats = sqlx::query_with(query.as_str(), arguments)
             .fetch_all(&self.pool)
             .await
             .expect("get_workout_repeat_by_id error")
