@@ -4,6 +4,7 @@ services:
   postgres:
     container_name: santa_cruz_postgres
     image: postgres:12.3
+    command: ["postgres", "-c", "log_statement=all"]
     ports:
       - 5432:5432
     environment:

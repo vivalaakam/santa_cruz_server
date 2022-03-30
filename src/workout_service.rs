@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
+use sqlx::types::Json;
 use sqlx::{postgres::PgArguments, Arguments, PgPool};
 use tonic::{Request, Response, Status};
 
+use crate::me_extension::MeExtension;
 use crate::proto::proto;
 use crate::proto::proto::santa_cruz::{
     CreateWorkoutRequest, DeleteWorkoutRequest, DeleteWorkoutResponse, GetWorkoutRequest,
@@ -41,16 +45,20 @@ impl WorkoutService {
         WorkoutService { pool: pool.clone() }
     }
 
-    pub async fn get_workout_by_id(&self, id: i32) -> Workout {
-        let row: WorkoutRow = sqlx::query_as(
-            r#"SELECT id, status, day, created_at, updated_at, rate, comment FROM workouts WHERE id = $1"#,
+    pub async fn get_workout_by_id(pool: &PgPool, id: i32, user_id: i32) -> Option<Workout> {
+        sqlx::query_as::<_, WorkoutRow>(
+            r#"
+                    SELECT id, status, day, created_at, updated_at, rate, comment
+                    FROM workouts
+                    WHERE id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
+                "#,
         )
             .bind(id)
-            .fetch_one(&self.pool)
+            .bind(user_id)
+            .fetch_one(pool)
             .await
-            .expect("get_workout_by_id error");
-
-        row.into()
+            .map(|r| r.into())
+            .ok()
     }
 }
 
@@ -60,43 +68,66 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
         &self,
         request: Request<GetWorkoutRequest>,
     ) -> Result<Response<Workout>, Status> {
-        let GetWorkoutRequest { id } = &request.into_inner();
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
+        let GetWorkoutRequest { id } = &request.get_ref();
 
-        let reply = self.get_workout_by_id(*id).await;
-        Ok(Response::new(reply))
+        WorkoutService::get_workout_by_id(&self.pool, *id, *user_id)
+            .await
+            .map(|reply| Response::new(reply))
+            .ok_or(Status::not_found(format!(
+                "workout #{} not found",
+                id.to_string()
+            )))
     }
 
     async fn create_workout(
         &self,
         request: Request<CreateWorkoutRequest>,
     ) -> Result<Response<Workout>, Status> {
-        let CreateWorkoutRequest {} = &request.into_inner();
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
 
-        let rec: (i32,) = sqlx::query_as(
-            r#"INSERT INTO workouts ( status, day ) VALUES ( $1 , $2 ) RETURNING id"#,
+        let mut permissions = HashMap::new();
+        permissions.insert(user_id, 2);
+
+        let rec: (i32, ) = sqlx::query_as(
+            r#"INSERT INTO workouts ( status, day, permissions ) VALUES ( $1 , $2, $3 ) RETURNING id"#,
         )
-        .bind(0)
-        .bind(Utc::now())
-        .fetch_one(&self.pool)
-        .await
-        .expect("create_workout error");
+            .bind(0)
+            .bind(Utc::now())
+            .bind(Json(permissions))
+            .fetch_one(&self.pool)
+            .await
+            .expect("create_workout error");
 
-        let reply = self.get_workout_by_id(rec.0 as i32).await;
-        Ok(Response::new(reply))
+        match WorkoutService::get_workout_by_id(&self.pool, rec.0 as i32, *user_id).await {
+            Some(reply) => Ok(Response::new(reply)),
+            None => Err(Status::not_found(format!(
+                "workout #{} not found",
+                rec.0.to_string()
+            ))),
+        }
     }
 
     async fn update_workout(
         &self,
         request: Request<UpdateWorkoutRequest>,
     ) -> Result<Response<Workout>, Status> {
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
         let UpdateWorkoutRequest {
             id,
             status,
             day,
             rate,
             comment,
-        } = &request.into_inner();
-        let original = self.get_workout_by_id(*id).await;
+        } = request.get_ref();
+        let original = WorkoutService::get_workout_by_id(&self.pool, *id, *user_id).await;
+
+        if original.is_none() {
+            return Err(Status::not_found(format!(
+                "workout #{} not found",
+                id.to_string()
+            )));
+        }
 
         let mut arguments = PgArguments::default();
 
@@ -123,7 +154,12 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
         }
 
         if params.len() == 0 {
-            return Ok(Response::new(original));
+            return original
+                .map(|reply| Response::new(reply))
+                .ok_or(Status::not_found(format!(
+                    "workout #{} not found",
+                    id.to_string()
+                )));
         }
 
         params.push("updated_at");
@@ -149,18 +185,25 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
             .await
             .expect("update_workout error");
 
-        let reply = self.get_workout_by_id(*id).await;
-        Ok(Response::new(reply))
+        match WorkoutService::get_workout_by_id(&self.pool, *id, *user_id).await {
+            Some(reply) => Ok(Response::new(reply)),
+            None => Err(Status::not_found(format!(
+                "workout #{} not found",
+                id.to_string()
+            ))),
+        }
     }
 
     async fn delete_workout(
         &self,
         request: Request<DeleteWorkoutRequest>,
     ) -> Result<Response<DeleteWorkoutResponse>, Status> {
-        let DeleteWorkoutRequest { id } = &request.into_inner();
+        let MeExtension { user_id } = request.extensions().get::<MeExtension>().unwrap();
+        let DeleteWorkoutRequest { id } = request.get_ref();
 
-        sqlx::query(r#"DELETE FROM workouts WHERE id = $1 "#)
+        sqlx::query(r#"DELETE FROM workouts WHERE id = $1 AND (permissions ->> CAST($2 as text))::integer > 1"#)
             .bind(id)
+            .bind(user_id)
             .execute(&self.pool)
             .await
             .expect("update_workout error");
@@ -170,14 +213,21 @@ impl proto::santa_cruz::workout_service_server::WorkoutService for WorkoutServic
 
     async fn get_workouts(
         &self,
-        _request: Request<GetWorkoutsRequest>,
+        request: Request<GetWorkoutsRequest>,
     ) -> Result<Response<GetWorkoutsResponse>, Status> {
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
+
         let rows: Vec<WorkoutRow> = sqlx::query_as(
-            r#"SELECT id, status, day, created_at, updated_at, rate, comment FROM workouts"#,
+            r#"SELECT id, status, day, created_at, updated_at, rate, comment
+                    FROM workouts
+                    WHERE ((permissions ->> CAST($1 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
+                    ORDER BY created_at DESC
+                "#,
         )
-        .fetch_all(&self.pool)
-        .await
-        .expect("get_workout_by_id error");
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .expect("get_workout_by_id error");
 
         let workouts = rows.into_iter().map(|row| row.into()).collect();
 

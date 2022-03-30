@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use sqlx::{postgres::PgArguments, Arguments, PgPool};
 use tonic::{Request, Response, Status};
 
+use crate::me_extension::MeExtension;
 use crate::proto::proto;
 use crate::proto::proto::santa_cruz;
 use crate::proto::proto::santa_cruz::workout_set_type::Type;
@@ -12,6 +15,7 @@ use crate::proto::proto::santa_cruz::{
     GetWorkoutSetRequest, GetWorkoutSetsRequest, GetWorkoutSetsResponse, UpdateWorkoutSetRequest,
     WorkoutSet,
 };
+use crate::WorkoutService;
 
 pub struct WorkoutSetService {
     pool: PgPool,
@@ -93,16 +97,34 @@ impl WorkoutSetService {
         WorkoutSetService { pool: pool.clone() }
     }
 
-    pub async fn get_workout_set_by_id(&self, id: i32) -> WorkoutSet {
-        let row: WorkoutSetRow = sqlx::query_as(
-            r#"SELECT id, workout_id, position, type, comment, created_at, updated_at FROM workout_sets WHERE id = $1"#,
+    pub async fn get_workout_set_by_id(pool: &PgPool, id: i32, user_id: i32) -> Option<WorkoutSet> {
+        sqlx::query_as::<_, WorkoutSetRow>(
+            r#"
+                    SELECT id, workout_id, position, type, comment, created_at, updated_at
+                    FROM workout_sets
+                    WHERE id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
+                "#,
         )
             .bind(id)
-            .fetch_one(&self.pool)
+            .bind(user_id)
+            .fetch_one(pool)
             .await
-            .expect("get_workout_set_by_id error");
+            .map(|row| row.into())
+            .ok()
+    }
 
-        row.into()
+    pub async fn return_workout_set_by_id(
+        &self,
+        id: i32,
+        user_id: i32,
+    ) -> Result<Response<WorkoutSet>, Status> {
+        WorkoutSetService::get_workout_set_by_id(&self.pool, id, user_id)
+            .await
+            .map(|reply| Response::new(reply))
+            .ok_or(Status::not_found(format!(
+                "workout_set #{} not found",
+                id.to_string()
+            )))
     }
 }
 
@@ -112,47 +134,70 @@ impl proto::santa_cruz::workout_set_service_server::WorkoutSetService for Workou
         &self,
         request: Request<GetWorkoutSetRequest>,
     ) -> Result<Response<WorkoutSet>, Status> {
-        let GetWorkoutSetRequest { id } = &request.into_inner();
+        let MeExtension { user_id } = request.extensions().get::<MeExtension>().unwrap();
+        let GetWorkoutSetRequest { id } = request.get_ref();
 
-        let reply = self.get_workout_set_by_id(*id).await;
-        Ok(Response::new(reply))
+        self.return_workout_set_by_id(*id, *user_id).await
     }
 
     async fn create_workout_set(
         &self,
         request: Request<CreateWorkoutSetRequest>,
     ) -> Result<Response<WorkoutSet>, Status> {
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
+
         let CreateWorkoutSetRequest {
             workout_id,
             position,
             r#type,
-        } = &request.into_inner();
+        } = &request.get_ref();
 
-        let rec: (i32, ) = sqlx::query_as(
-            r#"INSERT INTO workout_sets ( workout_id, position, type ) VALUES ( $1 , $2, $3 ) RETURNING id"#,
+        let workout = WorkoutService::get_workout_by_id(&self.pool, *workout_id, *user_id).await;
+
+        if workout.is_none() {
+            return Err(Status::permission_denied(format!(
+                "permissions not found for workout #{}",
+                workout_id.to_string()
+            )));
+        }
+
+        let mut permissions = HashMap::new();
+        permissions.insert(user_id, 2);
+
+        let (id, ): (i32, ) = sqlx::query_as(
+            r#"INSERT INTO workout_sets ( workout_id, position, type, permissions ) VALUES ( $1 , $2, $3, $4 ) RETURNING id"#,
         )
             .bind(workout_id)
             .bind(position)
             .bind(Json::from(r#type.clone().unwrap()))
+            .bind(Json(permissions))
             .fetch_one(&self.pool)
             .await
             .expect("create_workout_set error");
 
-        let reply = self.get_workout_set_by_id(rec.0 as i32).await;
-        Ok(Response::new(reply))
+        self.return_workout_set_by_id(id, *user_id).await
     }
 
     async fn update_workout_set(
         &self,
         request: Request<UpdateWorkoutSetRequest>,
     ) -> Result<Response<WorkoutSet>, Status> {
+        let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
         let UpdateWorkoutSetRequest {
             id,
             comment,
             position,
             r#type,
-        } = &request.into_inner();
-        let original = self.get_workout_set_by_id(*id).await;
+        } = &request.get_ref();
+
+        let original = WorkoutSetService::get_workout_set_by_id(&self.pool, *id, *user_id).await;
+
+        if original.is_none() {
+            return Err(Status::not_found(format!(
+                "workout #{} not found",
+                id.to_string()
+            )));
+        }
 
         let mut arguments = PgArguments::default();
 
@@ -174,23 +219,22 @@ impl proto::santa_cruz::workout_set_service_server::WorkoutSetService for Workou
         }
 
         if params.len() == 0 {
-            return Ok(Response::new(original));
+            return Ok(Response::new(original.unwrap()));
         }
 
         params.push("updated_at");
         arguments.add(Utc::now());
 
-        let mut fields = vec![];
-
-        for i in 0..params.len() {
-            let item = params.get(i).expect("item should be there");
-            fields.push(format!("{key} = ${index}", key = item, index = i + 1));
-        }
+        let fields = params
+            .into_iter()
+            .enumerate()
+            .map(|row| format!("{key} = ${index}", key = row.1, index = row.0 + 1))
+            .collect::<Vec<String>>();
 
         let query = format!(
             "UPDATE workout_sets SET {fields} WHERE id = ${index}",
             fields = fields.join(", "),
-            index = params.len() + 1
+            index = fields.len() + 1
         );
 
         arguments.add(id);
@@ -200,18 +244,19 @@ impl proto::santa_cruz::workout_set_service_server::WorkoutSetService for Workou
             .await
             .expect("update_workout_set error");
 
-        let reply = self.get_workout_set_by_id(*id).await;
-        Ok(Response::new(reply))
+        self.return_workout_set_by_id(*id, *user_id).await
     }
 
     async fn delete_workout_set(
         &self,
         request: Request<DeleteWorkoutSetRequest>,
     ) -> Result<Response<DeleteWorkoutSetResponse>, Status> {
-        let DeleteWorkoutSetRequest { id } = &request.into_inner();
+        let MeExtension { user_id } = request.extensions().get::<MeExtension>().unwrap();
+        let DeleteWorkoutSetRequest { id } = &request.get_ref();
 
-        sqlx::query(r#"DELETE FROM workout_sets WHERE id = $1 "#)
+        sqlx::query(r#"DELETE FROM workout_sets WHERE id = $1 AND (permissions ->> CAST($2 as text))::integer > 1"#)
             .bind(id)
+            .bind(user_id)
             .execute(&self.pool)
             .await
             .expect("update_workout_set error");
@@ -223,12 +268,14 @@ impl proto::santa_cruz::workout_set_service_server::WorkoutSetService for Workou
         &self,
         request: Request<GetWorkoutSetsRequest>,
     ) -> Result<Response<GetWorkoutSetsResponse>, Status> {
-        let GetWorkoutSetsRequest { workout_id } = &request.into_inner();
+        let MeExtension { user_id } = request.extensions().get::<MeExtension>().unwrap();
+        let GetWorkoutSetsRequest { workout_id } = &request.get_ref();
 
-        let rows: Vec<WorkoutSetRow> = sqlx::query_as(
-            r#"SELECT id, workout_id, position, type, comment, created_at, updated_at FROM workout_sets WHERE workout_id = $1"#,
+        let rows = sqlx::query_as::<_, WorkoutSetRow>(
+            r#"SELECT id, workout_id, position, type, comment, created_at, updated_at FROM workout_sets WHERE workout_id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)"#,
         )
             .bind(workout_id)
+            .bind(user_id)
             .fetch_all(&self.pool)
             .await
             .expect("get_workout_sets error");

@@ -997,12 +997,44 @@ pub mod workout_set_service_server {
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct IdQuery {
+    #[prost(oneof = "id_query::Value", tags = "1, 2, 3")]
+    pub value: ::core::option::Option<id_query::Value>,
+}
+/// Nested message and enum types in `IdQuery`.
+pub mod id_query {
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Unknown {}
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Eq {
+        #[prost(int32, tag = "1")]
+        pub value: i32,
+    }
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct In {
+        #[prost(int32, repeated, tag = "1")]
+        pub value: ::prost::alloc::vec::Vec<i32>,
+    }
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag = "1")]
+        Unknown(Unknown),
+        #[prost(message, tag = "2")]
+        Eq(Eq),
+        #[prost(message, tag = "3")]
+        In(In),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetWorkoutRepeatRequest {
     #[prost(int32, tag = "1")]
     pub id: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetWorkoutRepeatsRequest {}
+pub struct GetWorkoutRepeatsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub workout_set_id: ::core::option::Option<IdQuery>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetWorkoutRepeatsResponse {
     #[prost(message, repeated, tag = "1")]
