@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;
-use sqlx::{postgres::PgArguments, Arguments, PgPool, Row};
 use sqlx::types::Json;
+use sqlx::{postgres::PgArguments, Arguments, PgPool, Row};
 use tonic::{Request, Response, Status};
 
 use crate::me_extension::MeExtension;
@@ -19,43 +20,17 @@ pub struct WorkoutRepeatService {
     pool: PgPool,
 }
 
-type WorkoutRepeatRow = (
-    i32,
-    DateTime<Utc>,
-    DateTime<Utc>,
-    i32,
-    i32,
-    i32,
-    Option<f64>,
-    Option<f64>,
-);
-
-impl Into<WorkoutRepeat> for WorkoutRepeatRow {
-    fn into(self) -> WorkoutRepeat {
+impl From<PgRow> for WorkoutRepeat {
+    fn from(row: PgRow) -> Self {
         WorkoutRepeat {
-            id: self.0,
-            created_at: self.1.to_rfc3339(),
-            updated_at: self.2.to_rfc3339(),
-            workout_set_id: self.3,
-            exercise_id: self.4,
-            repeats: self.5,
-            weight: self.6,
-            time: self.7,
-        }
-    }
-}
-
-impl Into<WorkoutRepeat> for PgRow {
-    fn into(self) -> WorkoutRepeat {
-        WorkoutRepeat {
-            id: self.get::<i32, _>("id"),
-            created_at: self.get::<DateTime<Utc>, _>("created_at").to_rfc3339(),
-            updated_at: self.get::<DateTime<Utc>, _>("updated_at").to_rfc3339(),
-            workout_set_id: self.get::<i32, _>("workout_set_id"),
-            exercise_id: self.get::<i32, _>("exercise_id"),
-            repeats: self.get::<i32, _>("repeats"),
-            weight: self.get::<Option<f64>, _>("weight"),
-            time: self.get::<Option<f64>, _>("time"),
+            id: row.get::<i32, _>("id"),
+            created_at: row.get::<DateTime<Utc>, _>("created_at").to_rfc3339(),
+            updated_at: row.get::<DateTime<Utc>, _>("updated_at").to_rfc3339(),
+            workout_set_id: row.get::<i32, _>("workout_set_id"),
+            exercise_id: row.get::<i32, _>("exercise_id"),
+            repeats: row.get::<i32, _>("repeats"),
+            weight: row.get::<Option<f64>, _>("weight"),
+            time: row.get::<Option<f64>, _>("time"),
         }
     }
 }
@@ -70,15 +45,16 @@ impl WorkoutRepeatService {
         id: i32,
         user_id: i32,
     ) -> Option<WorkoutRepeat> {
-        sqlx::query_as::<_, WorkoutRepeatRow>(
+        let mut arguments = PgArguments::default();
+        arguments.add(id);
+        arguments.add(user_id);
+        sqlx::query_with(
             r#"
                 SELECT id, created_at, updated_at, workout_set_id, exercise_id, repeats, weight, time
                 FROM workout_repeats
                 WHERE id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
-            "#,
+            "#, arguments
         )
-            .bind(id)
-            .bind(user_id)
             .fetch_one(pool)
             .await
             .map(|r| r.into())
@@ -305,8 +281,6 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
             r#"SELECT id, created_at, updated_at, workout_set_id, exercise_id, repeats, weight, time FROM workout_repeats WHERE {}"#,
             params.join(" AND ")
         );
-
-        println!("query: {}", query);
 
         let workout_repeats = sqlx::query_with(&*query, arguments)
             .fetch_all(&self.pool)
