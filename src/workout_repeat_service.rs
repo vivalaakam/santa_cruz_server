@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Row};
 use sqlx::postgres::PgRow;
 use sqlx::types::Json;
-use sqlx::{postgres::PgArguments, Arguments, PgPool, Row};
 use tonic::{Request, Response, Status};
 
 use crate::me_extension::MeExtension;
 use crate::proto::proto;
-use crate::proto::proto::santa_cruz::id_query::Value;
 use crate::proto::proto::santa_cruz::{
     CreateWorkoutRepeatRequest, DeleteWorkoutRepeatRequest, DeleteWorkoutRepeatResponse,
     GetWorkoutRepeatRequest, GetWorkoutRepeatsRequest, GetWorkoutRepeatsResponse,
     UpdateWorkoutRepeatRequest, WorkoutRepeat,
 };
+use crate::proto::proto::santa_cruz::id_query::Value;
+use crate::query_builder::QueryBuilder;
 use crate::WorkoutSetService;
 
 pub struct WorkoutRepeatService {
@@ -45,16 +46,23 @@ impl WorkoutRepeatService {
         id: i32,
         user_id: i32,
     ) -> Option<WorkoutRepeat> {
-        let mut arguments = PgArguments::default();
-        arguments.add(id);
-        arguments.add(user_id);
-        sqlx::query_with(
-            r#"
-                SELECT id, created_at, updated_at, workout_set_id, exercise_id, repeats, weight, time
-                FROM workout_repeats
-                WHERE id = $1 AND ((permissions ->> CAST($2 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)
-            "#, arguments,
-        )
+        let mut query_builder = QueryBuilder::new("workout_repeats");
+        query_builder.fields(vec![
+            "id",
+            "created_at",
+            "updated_at",
+            "workout_set_id",
+            "exercise_id",
+            "repeats",
+            "weight",
+            "time",
+        ]);
+        query_builder.where_raw("((permissions ->> CAST(${index} as text))::integer > 0 OR (permissions ->> '0')::integer > 0)", user_id);
+        query_builder.where_eq("id", id);
+
+        let sql = query_builder.select_query();
+
+        sqlx::query_with(sql.0.as_str(), sql.1)
             .fetch_one(pool)
             .await
             .map(|r| r.into())
@@ -78,7 +86,7 @@ impl WorkoutRepeatService {
 
 #[tonic::async_trait]
 impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
-    for WorkoutRepeatService
+for WorkoutRepeatService
 {
     async fn get_workout_repeat(
         &self,
@@ -114,48 +122,30 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
             )));
         }
 
-        let mut arguments = PgArguments::default();
-        let mut params = vec![];
+        let mut query_builder = QueryBuilder::new("workout_repeats");
 
-        params.push("workout_set_id");
-        arguments.add(workout_set_id);
-
-        params.push("exercise_id");
-        arguments.add(exercise_id);
-
-        params.push("permissions");
+        query_builder.field_with_argument("workout_set_id", workout_set_id);
+        query_builder.field_with_argument("exercise_id", exercise_id);
 
         let mut permissions = HashMap::new();
         permissions.insert(user_id, 2);
-        arguments.add(Json(permissions));
+        query_builder.field_with_argument("permissions", Json(permissions));
 
         if let Some(repeats) = repeats {
-            params.push("repeats");
-            arguments.add(repeats);
+            query_builder.field_with_argument("repeats", repeats);
         }
 
         if let Some(weight) = weight {
-            params.push("weight");
-            arguments.add(weight);
+            query_builder.field_with_argument("weight", weight);
         }
 
         if let Some(time) = time {
-            params.push("time");
-            arguments.add(time);
+            query_builder.field_with_argument("time", time);
         }
 
-        let query = format!(
-            "INSERT INTO workout_repeats ( {fields}) VALUES ( {indexes} ) RETURNING id",
-            fields = params.join(", "),
-            indexes = params
-                .iter()
-                .enumerate()
-                .map(|ind| format!("${}", ind.0 + 1))
-                .collect::<Vec<String>>()
-                .join(", "),
-        );
+        let sql = query_builder.insert_query();
 
-        let rec = sqlx::query_with(&*query, arguments)
+        let rec = sqlx::query_with(sql.0.as_str(), sql.1)
             .fetch_one(&self.pool)
             .await
             .expect("create_workout_repeat error");
@@ -187,47 +177,31 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
             )));
         }
 
-        let mut arguments = PgArguments::default();
-
-        let mut params = vec![];
+        let mut query_builder = QueryBuilder::new("workout_repeats");
 
         if let Some(repeats) = repeats {
-            params.push("repeats");
-            arguments.add(repeats)
+            query_builder.field_with_argument("repeats", repeats);
         }
 
         if let Some(weight) = weight {
-            params.push("weight");
-            arguments.add(weight)
+            query_builder.field_with_argument("weight", weight);
         }
 
         if let Some(time) = time {
-            params.push("time");
-            arguments.add(time)
+            query_builder.field_with_argument("time", time);
         }
 
-        if params.len() == 0 {
+        if !query_builder.has_fields() {
             return Ok(Response::new(original.unwrap()));
         }
 
-        params.push("updated_at");
-        arguments.add(Utc::now());
+        query_builder.field_with_argument("updated_at", Utc::now());
 
-        let fields = params
-            .into_iter()
-            .enumerate()
-            .map(|row| format!("{key} = ${index}", key = row.1, index = row.0 + 1))
-            .collect::<Vec<String>>();
+        query_builder.where_eq("id", id);
 
-        let query = format!(
-            "UPDATE workout_repeats SET {fields} WHERE id = ${index}",
-            fields = fields.join(", "),
-            index = fields.len() + 1
-        );
+        let sql = query_builder.update_query();
 
-        arguments.add(id);
-
-        sqlx::query_with(&*query, arguments)
+        sqlx::query_with(sql.0.as_str(), sql.1)
             .execute(&self.pool)
             .await
             .expect("update_workout_repeat error");
@@ -242,21 +216,13 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
         let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
         let DeleteWorkoutRepeatRequest { id } = &request.get_ref();
 
-        let mut params = vec![
-            "((permissions ->> CAST($1 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)".to_string()
-        ];
-        let mut arguments = PgArguments::default();
-        arguments.add(user_id);
+        let mut query_builder = QueryBuilder::new("workout_repeats");
+        query_builder.where_raw("((permissions ->> CAST(${index} as text))::integer > 0 OR (permissions ->> '0')::integer > 0)", user_id);
+        query_builder.where_eq("id", id);
 
-        params.push(format!("id = ${index}", index = params.len() + 1));
-        arguments.add(id);
+        let sql = query_builder.delete_query();
 
-        let query = format!(
-            r#"DELETE FROM workout_repeats WHERE {}"#,
-            params.join(" AND ")
-        );
-
-        sqlx::query_with(query.as_str(), arguments)
+        sqlx::query_with(sql.0.as_str(), sql.1)
             .execute(&self.pool)
             .await
             .expect("update_workout_repeat error");
@@ -271,30 +237,34 @@ impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
         let MeExtension { user_id } = request.extensions().get::<MeExtension>().unwrap();
         let GetWorkoutRepeatsRequest { workout_set_id } = request.get_ref();
 
-        let mut params = vec!["((permissions ->> CAST($1 as text))::integer > 0 OR (permissions ->> '0')::integer > 0)".to_string()];
-        let mut arguments = PgArguments::default();
-        arguments.add(user_id);
+        let mut query_builder = QueryBuilder::new("workout_repeats");
+        query_builder.fields(vec![
+            "id",
+            "created_at",
+            "updated_at",
+            "workout_set_id",
+            "exercise_id",
+            "repeats",
+            "weight",
+            "time",
+        ]);
+        query_builder.where_raw("((permissions ->> CAST(${index} as text))::integer > 0 OR (permissions ->> '0')::integer > 0)", user_id);
 
         if let Some(id_query) = workout_set_id {
             match id_query.clone().value.unwrap() {
                 Value::Unknown(_) => {}
                 Value::Eq(value) => {
-                    params.push(format!("workout_set_id = ${}", params.len() + 1));
-                    arguments.add(value.value)
+                    query_builder.where_eq("workout_set_id", value.value);
                 }
                 Value::In(value) => {
-                    params.push(format!("workout_set_id = ANY(${})", params.len() + 1));
-                    arguments.add(value.value)
+                    query_builder.where_any("workout_set_id", value.value);
                 }
             }
         }
 
-        let query = format!(
-            r#"SELECT id, created_at, updated_at, workout_set_id, exercise_id, repeats, weight, time FROM workout_repeats WHERE {}"#,
-            params.join(" AND ")
-        );
+        let sql = query_builder.select_query();
 
-        let workout_repeats = sqlx::query_with(query.as_str(), arguments)
+        let workout_repeats = sqlx::query_with(sql.0.as_str(), sql.1)
             .fetch_all(&self.pool)
             .await
             .expect("get_workout_repeat_by_id error")

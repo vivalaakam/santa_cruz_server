@@ -1,14 +1,12 @@
 use std::env;
-use std::sync::Arc;
 
 use dotenv::dotenv;
 use log::debug;
 use sqlx::PgPool;
 use tonic::transport::Server;
-use tonic::Request;
 use tonic_web;
 
-use crate::auth_interception::AuthInterception;
+use crate::auth_interceptor::{load_sessions, AuthInterceptor};
 use crate::auth_service::AuthService;
 use crate::exercise_service::ExerciseService;
 use crate::proto::proto::santa_cruz::auth_service_server::AuthServiceServer;
@@ -23,11 +21,12 @@ use crate::workout_repeat_service::WorkoutRepeatService;
 use crate::workout_service::WorkoutService;
 use crate::workout_set_service::WorkoutSetService;
 
-mod auth_interception;
+mod auth_interceptor;
 mod auth_service;
 mod exercise_service;
 mod me_extension;
 mod proto;
+mod query_builder;
 mod session_service;
 mod sessions_cache;
 mod user_service;
@@ -44,52 +43,39 @@ async fn main() {
         .await
         .expect("postgresql fails");
 
-    let cache = Arc::new(SessionsCache::default());
-
-    let auth_interception = AuthInterception::new(&pool, cache.clone());
-
-    auth_interception.load_sessions().await;
-
-    let auth = AuthService::new(&pool, cache.clone());
-    let user = UserService::new(&pool);
-    let exercise = ExerciseService::new(&pool);
-    let workout = WorkoutService::new(&pool);
-    let workout_repeat = WorkoutRepeatService::new(&pool);
-    let workout_set = WorkoutSetService::new(&pool);
+    let cache = load_sessions(&pool).await;
 
     let addr = "[::1]:50051";
     debug!("started: {}", addr);
 
-    let auth = tonic_web::config().enable(AuthServiceServer::new(auth));
-
-    let user_auth_interception = auth_interception.clone();
+    let auth = tonic_web::config().enable(AuthServiceServer::new(AuthService::new(
+        &pool,
+        cache.clone(),
+    )));
 
     let user = tonic_web::config().enable(UserServiceServer::with_interceptor(
-        user,
-        move |req: Request<()>| user_auth_interception.check(req),
+        UserService::new(&pool),
+        AuthInterceptor::new(cache.clone()),
     ));
 
-    let exercise = tonic_web::config().enable(ExerciseServiceServer::new(exercise));
-
-    let workout_auth_interception = auth_interception.clone();
+    let exercise = tonic_web::config().enable(ExerciseServiceServer::with_interceptor(
+        ExerciseService::new(&pool),
+        AuthInterceptor::new(cache.clone()),
+    ));
 
     let workout = tonic_web::config().enable(WorkoutServiceServer::with_interceptor(
-        workout,
-        move |req: Request<()>| workout_auth_interception.check(req),
+        WorkoutService::new(&pool),
+        AuthInterceptor::new(cache.clone()),
     ));
-
-    let workout_repeat_auth_interception = auth_interception.clone();
 
     let workout_repeat = tonic_web::config().enable(WorkoutRepeatServiceServer::with_interceptor(
-        workout_repeat,
-        move |req: Request<()>| workout_repeat_auth_interception.check(req),
+        WorkoutRepeatService::new(&pool),
+        AuthInterceptor::new(cache.clone()),
     ));
 
-    let workout_set_auth_interception = auth_interception.clone();
-
     let workout_set = tonic_web::config().enable(WorkoutSetServiceServer::with_interceptor(
-        workout_set,
-        move |req: Request<()>| workout_set_auth_interception.check(req),
+        WorkoutSetService::new(&pool),
+        AuthInterceptor::new(cache.clone()),
     ));
 
     Server::builder()

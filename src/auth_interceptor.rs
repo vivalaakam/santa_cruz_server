@@ -1,15 +1,21 @@
 use std::sync::Arc;
 
 use sqlx::PgPool;
-use tonic::{Request, Status};
+use tonic::service::Interceptor;
+use tonic::Status;
 
 use crate::me_extension::MeExtension;
 use crate::SessionsCache;
 
 #[derive(Clone)]
-pub struct AuthInterception {
-    pool: PgPool,
+pub struct AuthInterceptor {
     cache: Arc<SessionsCache>,
+}
+
+impl AuthInterceptor {
+    pub fn new(cache: Arc<SessionsCache>) -> AuthInterceptor {
+        AuthInterceptor { cache }
+    }
 }
 
 fn get_token(token: &str) -> Option<&str> {
@@ -22,26 +28,24 @@ fn get_token(token: &str) -> Option<&str> {
     return Some(token.trim());
 }
 
-impl AuthInterception {
-    pub fn new(pool: &PgPool, cache: Arc<SessionsCache>) -> AuthInterception {
-        AuthInterception {
-            pool: pool.clone(),
-            cache,
-        }
+pub async fn load_sessions(pool: &PgPool) -> Arc<SessionsCache> {
+    let rows: Vec<(String, i32)> = sqlx::query_as(r#"SELECT token, user_id FROM sessions"#)
+        .fetch_all(pool)
+        .await
+        .expect("load_sessions error");
+
+    let cache = Arc::new(SessionsCache::default());
+
+    for row in rows {
+        cache.insert(row.0, row.1);
     }
 
-    pub async fn load_sessions(&self) {
-        let rows: Vec<(String, i32)> = sqlx::query_as(r#"SELECT token, user_id FROM sessions"#)
-            .fetch_all(&self.pool)
-            .await
-            .expect("load_sessions error");
+    cache
+}
 
-        for row in rows {
-            self.cache.insert(row.0, row.1);
-        }
-    }
-
-    pub fn check(&self, mut req: Request<()>) -> Result<Request<()>, Status> {
+impl Interceptor for AuthInterceptor {
+    fn call(&mut self, request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
+        let mut req = request;
         match req.metadata().get("authorization") {
             Some(t) => {
                 let token = get_token(t.to_str().expect("token should be there"));
