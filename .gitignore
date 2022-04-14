@@ -1,3 +1,5 @@
 /target
 db.sqlite
 .env
+packages/**/*.lock
+packages/**/target

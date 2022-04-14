@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Row};
 use sqlx::postgres::PgRow;
 use sqlx::types::Json;
+use sqlx::{PgPool, Row};
 use tonic::{Request, Response, Status};
 
 use crate::me_extension::MeExtension;
 use crate::proto::proto;
+use crate::proto::proto::santa_cruz::id_query::Value;
 use crate::proto::proto::santa_cruz::{
     CreateWorkoutRepeatRequest, DeleteWorkoutRepeatRequest, DeleteWorkoutRepeatResponse,
     GetWorkoutRepeatRequest, GetWorkoutRepeatsRequest, GetWorkoutRepeatsResponse,
     UpdateWorkoutRepeatRequest, WorkoutRepeat,
 };
-use crate::proto::proto::santa_cruz::id_query::Value;
 use crate::query_builder::QueryBuilder;
 use crate::WorkoutSetService;
 
@@ -86,7 +86,7 @@ impl WorkoutRepeatService {
 
 #[tonic::async_trait]
 impl proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatService
-for WorkoutRepeatService
+    for WorkoutRepeatService
 {
     async fn get_workout_repeat(
         &self,

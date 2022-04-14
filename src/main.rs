@@ -20,6 +20,7 @@ use crate::user_service::UserService;
 use crate::workout_repeat_service::WorkoutRepeatService;
 use crate::workout_service::WorkoutService;
 use crate::workout_set_service::WorkoutSetService;
+use crate::queryable::Queryable;
 
 mod auth_interceptor;
 mod auth_service;
@@ -27,12 +28,14 @@ mod exercise_service;
 mod me_extension;
 mod proto;
 mod query_builder;
+mod services;
 mod session_service;
 mod sessions_cache;
 mod user_service;
 mod workout_repeat_service;
 mod workout_service;
 mod workout_set_service;
+mod queryable;
 
 #[tokio::main]
 async fn main() {
