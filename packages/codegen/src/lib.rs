@@ -11,6 +11,7 @@ use quote;
 mod from_pg_row;
 mod naive_snake_case;
 mod queryable;
+mod service;
 
 #[derive(Copy, Clone)]
 pub struct CodegenPackage {
@@ -48,8 +49,10 @@ impl Codegen {
             quote::quote! {
                 use chrono::{DateTime, Utc};
 
-                use sqlx::Row;
+                use sqlx::{PgPool, Row};
                 use sqlx::postgres::PgRow;
+
+                use tonic::{Request, Response, Status};
 
                 use crate::Queryable;
                 use crate::query_builder::QueryBuilder;
@@ -73,6 +76,7 @@ impl Codegen {
 
                     let from_pg_row_tokens = from_pg_row::from_pg_row(&m);
                     let queryable_tokens = queryable::queryable(&m, package);
+                    let service_tokens = service::service(&m, package);
 
                     let result = quote::quote! {
                         pub mod #mod_name {
@@ -82,6 +86,8 @@ impl Codegen {
                             #from_pg_row_tokens
 
                             #queryable_tokens
+
+                            #service_tokens
                         }
                     };
 
