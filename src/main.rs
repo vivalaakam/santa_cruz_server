@@ -15,12 +15,12 @@ use crate::proto::proto::santa_cruz::user_service_server::UserServiceServer;
 use crate::proto::proto::santa_cruz::workout_repeat_service_server::WorkoutRepeatServiceServer;
 use crate::proto::proto::santa_cruz::workout_service_server::WorkoutServiceServer;
 use crate::proto::proto::santa_cruz::workout_set_service_server::WorkoutSetServiceServer;
+use crate::queryable::Queryable;
 use crate::sessions_cache::SessionsCache;
 use crate::user_service::UserService;
 use crate::workout_repeat_service::WorkoutRepeatService;
 use crate::workout_service::WorkoutService;
 use crate::workout_set_service::WorkoutSetService;
-use crate::queryable::Queryable;
 
 mod auth_interceptor;
 mod auth_service;
@@ -28,6 +28,7 @@ mod exercise_service;
 mod me_extension;
 mod proto;
 mod query_builder;
+mod queryable;
 mod services;
 mod session_service;
 mod sessions_cache;
@@ -35,7 +36,6 @@ mod user_service;
 mod workout_repeat_service;
 mod workout_service;
 mod workout_set_service;
-mod queryable;
 
 #[tokio::main]
 async fn main() {

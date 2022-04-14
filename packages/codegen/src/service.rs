@@ -1,7 +1,7 @@
+use crate::naive_snake_case::naive_snake_case;
+use crate::CodegenPackage;
 use prost_types::DescriptorProto;
 use quote::__private::TokenStream;
-use crate::CodegenPackage;
-use crate::naive_snake_case::naive_snake_case;
 
 pub fn service(message: &DescriptorProto, _package: &CodegenPackage) -> TokenStream {
     let snake = naive_snake_case(message.name());

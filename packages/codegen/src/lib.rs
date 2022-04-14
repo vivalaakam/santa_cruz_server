@@ -5,19 +5,28 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use prost::Message;
-use prost_types::FileDescriptorSet;
+use prost_types::{DescriptorProto, FileDescriptorSet, ServiceDescriptorProto};
+use proto_service::messages::proto_service_messages;
 use quote;
 
 mod from_pg_row;
 mod naive_snake_case;
+mod proto_request_name;
+mod proto_request_params;
+mod proto_service;
 mod queryable;
 mod service;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct CodegenPackage {
     pub service: &'static str,
     pub message: &'static str,
     pub table: &'static str,
+    pub list: Option<&'static str>,
+    pub get: Option<&'static str>,
+    pub create: Option<&'static str>,
+    pub update: Option<&'static str>,
+    pub delete: Option<&'static str>,
 }
 
 #[derive(Default)]
@@ -47,53 +56,71 @@ impl Codegen {
         results.push(format!(
             "{}",
             quote::quote! {
+                use std::collections::HashMap;
+
                 use chrono::{DateTime, Utc};
 
                 use sqlx::{PgPool, Row};
                 use sqlx::postgres::PgRow;
+                use sqlx::types::Json;
 
                 use tonic::{Request, Response, Status};
 
+                use crate::proto::proto;
                 use crate::Queryable;
                 use crate::query_builder::QueryBuilder;
+                use crate::me_extension::MeExtension;
             }
         ));
 
-        let mut messages_keys = HashMap::new();
-
-        for package in &self.packages {
-            messages_keys.insert(package.message, package);
-        }
+        let mut messages: HashMap<&str, DescriptorProto> = HashMap::new();
+        let mut services: HashMap<&str, ServiceDescriptorProto> = HashMap::new();
 
         for f in &file_descriptor_set.file {
+            for s in &f.service {
+                services.insert(s.name(), s.clone());
+            }
+
             for m in &f.message_type {
-                let key = m.name.as_ref().unwrap();
-                if messages_keys.contains_key(&key.as_str()) {
-                    let package = *messages_keys.get(&key.as_str()).expect("oops");
-                    let mod_name =
-                        quote::format_ident!("{}", naive_snake_case::naive_snake_case(m.name()));
-                    let message_name = quote::format_ident!("{}", m.name());
+                messages.insert(m.name(), m.clone());
+            }
+        }
 
-                    let from_pg_row_tokens = from_pg_row::from_pg_row(&m);
-                    let queryable_tokens = queryable::queryable(&m, package);
-                    let service_tokens = service::service(&m, package);
+        for package in &self.packages {
+            let message = messages.get(package.message).unwrap();
+            let service = services.get(package.service).unwrap();
 
-                    let result = quote::quote! {
-                        pub mod #mod_name {
-                            use super::*;
-                            use crate::proto::proto::santa_cruz::#message_name;
+            let mod_name =
+                quote::format_ident!("{}", naive_snake_case::naive_snake_case(message.name()));
 
-                            #from_pg_row_tokens
+            let from_pg_row_tokens = from_pg_row::from_pg_row(&message);
+            let queryable_tokens = queryable::queryable(&message, package);
+            let service_tokens = service::service(&message, package);
 
-                            #queryable_tokens
+            let proto_service_tokens = proto_service::proto_service(&service, &messages, package);
 
-                            #service_tokens
-                        }
+            let message_names = proto_service_messages(&service, &messages, package)
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            let result = quote::quote! {
+                pub mod #mod_name {
+                    use super::*;
+                    use crate::proto::proto::santa_cruz::{
+                        #(#message_names ,)*
                     };
 
-                    results.push(format!("{}", result));
+                    #from_pg_row_tokens
+
+                    #queryable_tokens
+
+                    #service_tokens
+
+                    #proto_service_tokens
                 }
-            }
+            };
+
+            results.push(format!("{}", result));
         }
 
         let output_path = target.as_ref().join("services.rs");
