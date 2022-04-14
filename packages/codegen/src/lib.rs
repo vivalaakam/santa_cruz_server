@@ -1,11 +1,16 @@
-use std::{fs};
+use std::collections::HashMap;
 use std::fmt::Error;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use prost::Message;
 use prost_types::FileDescriptorSet;
 use quote;
+
+mod from_pg_row;
+mod naive_snake_case;
+mod queryable;
 
 #[derive(Copy, Clone)]
 pub struct CodegenPackage {
@@ -47,73 +52,36 @@ impl Codegen {
                 use sqlx::postgres::PgRow;
 
                 use crate::Queryable;
+                use crate::query_builder::QueryBuilder;
             }
         ));
 
-        let messages_keys = &self
-            .packages
-            .to_vec()
-            .into_iter()
-            .map(|p| p.message)
-            .collect::<Vec<_>>();
+        let mut messages_keys = HashMap::new();
+
+        for package in &self.packages {
+            messages_keys.insert(package.message, package);
+        }
 
         for f in &file_descriptor_set.file {
             for m in &f.message_type {
                 let key = m.name.as_ref().unwrap();
-                if messages_keys.contains(&key.as_str()) {
+                if messages_keys.contains_key(&key.as_str()) {
+                    let package = *messages_keys.get(&key.as_str()).expect("oops");
+                    let mod_name =
+                        quote::format_ident!("{}", naive_snake_case::naive_snake_case(m.name()));
                     let message_name = quote::format_ident!("{}", m.name());
 
-                    let fields = &m
-                        .field
-                        .clone()
-                        .into_iter()
-                        .map(|field| {
-                            let name = quote::format_ident!("{}", field.name());
-                            let formatted = format!("{}", field.name());
-                            let data_type = match field.name() {
-                                "id" => quote::quote! { i32 },
-                                "created_at" | "updated_at" => quote::quote! { DateTime<Utc> },
-                                _ => match field.r#type.unwrap() {
-                                    9 => quote::quote! { String },
-                                    _ => quote::quote! { unknown },
-                                },
-                            };
-
-                            let into = match field.name() {
-                                "created_at" | "updated_at" => quote::quote! { .to_rfc3339() },
-                                _ => quote::quote! {},
-                            };
-
-                            quote::quote! { #name: row.get::<#data_type, _>(#formatted)#into, }
-                        })
-                        .collect::<Vec<_>>();
+                    let from_pg_row_tokens = from_pg_row::from_pg_row(&m);
+                    let queryable_tokens = queryable::queryable(&m, package);
 
                     let result = quote::quote! {
-                        use crate::proto::proto::santa_cruz::#message_name;
+                        pub mod #mod_name {
+                            use super::*;
+                            use crate::proto::proto::santa_cruz::#message_name;
 
-                        impl From<PgRow> for #message_name {
-                            fn from(row: PgRow) -> Self {
-                                #message_name {
-                                    #(#fields)*
-                                }
-                            }
-                        }
-                    };
+                            #from_pg_row_tokens
 
-                    results.push(format!("{}", result));
-
-                    let queryable_fields = &m
-                        .field
-                        .clone()
-                        .into_iter()
-                        .map(|field| format!("{}", field.name()))
-                        .collect::<Vec<_>>();
-
-                    let result = quote::quote! {
-                        impl Queryable for #message_name {
-                            fn fields() -> Vec<&'static str> {
-                               vec![ #(#queryable_fields ,)* ]
-                            }
+                            #queryable_tokens
                         }
                     };
 
