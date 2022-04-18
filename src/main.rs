@@ -16,10 +16,10 @@ use crate::proto::proto::santa_cruz::workout_service_server::WorkoutServiceServe
 use crate::proto::proto::santa_cruz::workout_set_service_server::WorkoutSetServiceServer;
 use crate::queryable::Queryable;
 use crate::services::exercise::ExerciseService;
+use crate::services::workout::WorkoutService;
 use crate::sessions_cache::SessionsCache;
 use crate::user_service::UserService;
 use crate::workout_repeat_service::WorkoutRepeatService;
-use crate::workout_service::WorkoutService;
 use crate::workout_set_service::WorkoutSetService;
 
 mod auth_interceptor;

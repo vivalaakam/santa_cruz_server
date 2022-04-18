@@ -6,8 +6,8 @@ use quote::__private::TokenStream;
 use crate::naive_snake_case::naive_snake_case;
 use crate::proto_request_name::proto_request_name;
 use crate::proto_request_params::proto_request_params;
-use crate::CodegenPackage;
 use crate::proto_service::update::optional_fields::proto_service_update_optional_fields;
+use crate::CodegenPackage;
 
 mod optional_fields;
 
@@ -38,11 +38,9 @@ pub fn proto_service_update(
         let return_by_id =
             quote::format_ident!("return_{}_by_id", naive_snake_case(message.name()));
 
-        let get_by_id =
-            quote::format_ident!("get_{}_by_id", naive_snake_case(message.name()));
+        let get_by_id = quote::format_ident!("get_{}_by_id", naive_snake_case(message.name()));
 
-        let optional_fields =
-            proto_service_update_optional_fields(action, messages);
+        let optional_fields = proto_service_update_optional_fields(action, messages);
 
         return quote::quote! {
             async fn #proto_service_name {

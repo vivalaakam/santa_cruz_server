@@ -11,12 +11,12 @@ use prost_types::{DescriptorProto, ServiceDescriptorProto};
 use quote::__private::TokenStream;
 
 use crate::naive_snake_case::naive_snake_case;
-use crate::CodegenPackage;
 use crate::proto_service::create::proto_service_create;
 use crate::proto_service::delete::proto_service_delete;
 use crate::proto_service::get::proto_service_get;
 use crate::proto_service::list::proto_service_list;
 use crate::proto_service::update::proto_service_update;
+use crate::CodegenPackage;
 
 pub fn proto_service(
     service: &ServiceDescriptorProto,

@@ -5,10 +5,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use prost::Message;
-use prost_types::{DescriptorProto, FileDescriptorSet, ServiceDescriptorProto};
+use prost_types::{
+    DescriptorProto, EnumDescriptorProto, FileDescriptorSet, ServiceDescriptorProto,
+};
 use proto_service::messages::proto_service_messages;
 use quote;
 
+mod enums;
 mod from_pg_row;
 mod naive_snake_case;
 mod proto_request_name;
@@ -57,12 +60,15 @@ impl Codegen {
             "{}",
             quote::quote! {
                 use std::collections::HashMap;
+                use std::error::Error;
 
                 use chrono::{DateTime, Utc};
 
-                use sqlx::{PgPool, Row};
+                use sqlx::{PgPool, Row, Decode};
                 use sqlx::postgres::PgRow;
                 use sqlx::types::Json;
+                use sqlx_core::postgres::{PgTypeInfo};
+                use sqlx_core::database::{Database,HasValueRef};
 
                 use tonic::{Request, Response, Status};
 
@@ -73,6 +79,7 @@ impl Codegen {
             }
         ));
 
+        let mut enums: HashMap<&str, EnumDescriptorProto> = HashMap::new();
         let mut messages: HashMap<&str, DescriptorProto> = HashMap::new();
         let mut services: HashMap<&str, ServiceDescriptorProto> = HashMap::new();
 
@@ -83,6 +90,10 @@ impl Codegen {
 
             for m in &f.message_type {
                 messages.insert(m.name(), m.clone());
+            }
+
+            for e in &f.enum_type {
+                enums.insert(e.name(), e.clone());
             }
         }
 
@@ -103,12 +114,16 @@ impl Codegen {
                 .into_iter()
                 .collect::<Vec<_>>();
 
+            let enum_tokens = enums::enums(&service, &messages, &enums, package);
+
             let result = quote::quote! {
                 pub mod #mod_name {
                     use super::*;
                     use crate::proto::proto::santa_cruz::{
                         #(#message_names ,)*
                     };
+
+                    #(#enum_tokens)*
 
                     #from_pg_row_tokens
 

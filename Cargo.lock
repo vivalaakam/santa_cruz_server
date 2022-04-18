@@ -248,6 +248,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1516,6 +1522,7 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 name = "santa_cruz_codegen"
 version = "0.1.0"
 dependencies = [
+ "convert_case",
  "prost 0.10.1",
  "prost-types 0.10.1",
  "quote",
@@ -1542,6 +1549,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sqlx",
+ "sqlx-core",
  "tokio",
  "tonic",
  "tonic-build",

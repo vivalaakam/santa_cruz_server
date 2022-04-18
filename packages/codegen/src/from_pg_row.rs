@@ -1,4 +1,5 @@
 use prost_types::DescriptorProto;
+use prost_types::FieldDescriptorProto;
 use quote::__private::TokenStream;
 
 pub fn from_pg_row(message: &DescriptorProto) -> TokenStream {
@@ -8,20 +9,46 @@ pub fn from_pg_row(message: &DescriptorProto) -> TokenStream {
         .clone()
         .into_iter()
         .map(|field| {
-            let name = quote::format_ident!("{}", field.name());
-            let formatted = format!("{}", field.name());
-            let data_type = match field.name() {
+            let FieldDescriptorProto {
+                type_name, name, ..
+            } = field;
+
+            let original_name = name.unwrap_or_default();
+
+            let formatted = format!("{}", original_name);
+            let name = quote::format_ident!("{}", original_name);
+            let data_type = match original_name.as_str() {
                 "id" => quote::quote! { i32 },
                 "created_at" | "updated_at" => quote::quote! { DateTime<Utc> },
                 _ => match field.r#type.unwrap() {
+                    5 => quote::quote! { i32 },
                     9 => quote::quote! { String },
-                    _ => quote::quote! { unknown },
+                    14 => {
+                        let enum_name = quote::format_ident!(
+                            "{}",
+                            type_name
+                                .unwrap()
+                                .split(".")
+                                .collect::<Vec<_>>()
+                                .last()
+                                .unwrap()
+                        );
+                        quote::quote! {
+                            #enum_name
+                        }
+                    }
+                    _ => quote::quote! {
+                        unknown
+                    },
                 },
             };
 
-            let into = match field.name() {
+            let into = match original_name.as_str() {
                 "created_at" | "updated_at" => quote::quote! { .to_rfc3339() },
-                _ => quote::quote! {},
+                _ => match field.r#type.unwrap() {
+                    14 => quote::quote! { .into() },
+                    _ => quote::quote! {},
+                },
             };
 
             quote::quote! { #name: row.get::<#data_type, _>(#formatted)#into, }

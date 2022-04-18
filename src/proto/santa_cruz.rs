@@ -329,7 +329,12 @@ pub struct GetWorkoutsResponse {
     pub workouts: ::prost::alloc::vec::Vec<Workout>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CreateWorkoutRequest {}
+pub struct CreateWorkoutRequest {
+    #[prost(enumeration = "WorkoutStatus", tag = "1")]
+    pub status: i32,
+    #[prost(string, tag = "2")]
+    pub day: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateWorkoutRequest {
     #[prost(int32, tag = "1")]

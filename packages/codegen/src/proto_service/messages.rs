@@ -7,8 +7,8 @@ use crate::CodegenPackage;
 
 pub fn proto_service_messages(
     service: &ServiceDescriptorProto,
-    _messages: &HashMap<&str, DescriptorProto>,
-    _package: &CodegenPackage,
+    messages: &HashMap<&str, DescriptorProto>,
+    package: &CodegenPackage,
 ) -> HashSet<Ident> {
     let mut result = HashSet::new();
 
@@ -38,6 +38,17 @@ pub fn proto_service_messages(
                 .last()
                 .unwrap()
         ));
+    }
+
+    if let Some(message) = messages.get(package.message) {
+        for field in &message.field {
+            if let Some(type_name) = &field.type_name {
+                result.insert(quote::format_ident!(
+                    "{}",
+                    type_name.split(".").collect::<Vec<_>>().last().unwrap()
+                ));
+            }
+        }
     }
 
     result

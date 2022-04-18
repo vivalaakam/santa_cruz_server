@@ -16,17 +16,17 @@ fn main() {
         ..CodegenPackage::default()
     });
 
-    // builder.add(CodegenPackage {
-    //     service: "WorkoutService",
-    //     message: "Workout",
-    //     table: "workouts",
-    //     list: Some("GetWorkouts"),
-    //     get: Some("GetWorkout"),
-    //     create: Some("CreateWorkout"),
-    //     update: Some("UpdateWorkout"),
-    //     delete: Some("DeleteWorkout"),
-    //     ..CodegenPackage::default()
-    // });
+    builder.add(CodegenPackage {
+        service: "WorkoutService",
+        message: "Workout",
+        table: "workouts",
+        list: Some("GetWorkouts"),
+        get: Some("GetWorkout"),
+        create: Some("CreateWorkout"),
+        update: Some("UpdateWorkout"),
+        delete: Some("DeleteWorkout"),
+        ..CodegenPackage::default()
+    });
 
     let _ = builder.build("src");
 }
