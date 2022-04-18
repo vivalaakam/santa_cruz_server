@@ -127,11 +127,17 @@ impl Codegen {
 
         fs::write(&output_path, results.join("\n")).unwrap();
 
-        Command::new("rustfmt")
+        let output = Command::new("rustfmt")
             .arg("--")
             .arg(&output_path.as_path())
             .output()
             .expect("failed to execute process");
+
+        println!("status: {}", output.status);
+        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+        assert!(output.status.success());
 
         Ok(())
     }

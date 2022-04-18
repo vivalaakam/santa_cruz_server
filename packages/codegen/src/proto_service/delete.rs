@@ -46,7 +46,7 @@ pub fn proto_service_delete(
                 #proto_service_params
 
                 let mut query_builder = #message_name::query();
-                query_builder.where_raw("((permissions ->> CAST(${index} as text))::integer > 0 OR (permissions ->> '0')::integer > 0)", user_id);
+                query_builder.where_raw("(permissions ->> CAST(${index} as text))::integer > 1", user_id);
                 query_builder.where_eq("id", id);
 
                 let sql = query_builder.delete_query();

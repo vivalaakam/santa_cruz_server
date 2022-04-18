@@ -354,14 +354,14 @@ pub struct DeleteWorkoutResponse {}
 pub struct Workout {
     #[prost(int32, tag = "1")]
     pub id: i32,
-    #[prost(enumeration = "WorkoutStatus", tag = "2")]
-    pub status: i32,
-    #[prost(string, tag = "3")]
-    pub day: ::prost::alloc::string::String,
-    #[prost(string, tag = "4")]
+    #[prost(string, tag = "2")]
     pub created_at: ::prost::alloc::string::String,
-    #[prost(string, tag = "5")]
+    #[prost(string, tag = "3")]
     pub updated_at: ::prost::alloc::string::String,
+    #[prost(enumeration = "WorkoutStatus", tag = "4")]
+    pub status: i32,
+    #[prost(string, tag = "5")]
+    pub day: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub comment: ::prost::alloc::string::String,
     #[prost(int32, tag = "7")]

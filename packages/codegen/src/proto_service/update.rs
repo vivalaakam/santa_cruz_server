@@ -33,6 +33,8 @@ pub fn proto_service_update(
         let proto_service_params = proto_request_params(action, messages);
         let message_name = quote::format_ident!("{}", message.name());
 
+        let service_name = quote::format_ident!("{}Service", message.name());
+
         let return_by_id =
             quote::format_ident!("return_{}_by_id", naive_snake_case(message.name()));
 
@@ -48,7 +50,7 @@ pub fn proto_service_update(
 
                 #proto_service_params
 
-                let original = self.#get_by_id(&self.pool, *id, *user_id).await;
+                let original = #service_name::#get_by_id(&self.pool, *id, *user_id).await;
 
                 if original.is_none() {
                     return Err(Status::not_found(format!(
@@ -76,7 +78,7 @@ pub fn proto_service_update(
                     .await
                     .expect("update_workout_repeat error");
 
-                self.#return_by_id(rec.get::<i32, _>("id"), *user_id).await
+                self.#return_by_id(*id, *user_id).await
             }
         };
     }

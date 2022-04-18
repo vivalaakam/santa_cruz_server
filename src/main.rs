@@ -8,7 +8,6 @@ use tonic_web;
 
 use crate::auth_interceptor::{load_sessions, AuthInterceptor};
 use crate::auth_service::AuthService;
-use crate::exercise_service::ExerciseService;
 use crate::proto::proto::santa_cruz::auth_service_server::AuthServiceServer;
 use crate::proto::proto::santa_cruz::exercise_service_server::ExerciseServiceServer;
 use crate::proto::proto::santa_cruz::user_service_server::UserServiceServer;
@@ -16,6 +15,7 @@ use crate::proto::proto::santa_cruz::workout_repeat_service_server::WorkoutRepea
 use crate::proto::proto::santa_cruz::workout_service_server::WorkoutServiceServer;
 use crate::proto::proto::santa_cruz::workout_set_service_server::WorkoutSetServiceServer;
 use crate::queryable::Queryable;
+use crate::services::exercise::ExerciseService;
 use crate::sessions_cache::SessionsCache;
 use crate::user_service::UserService;
 use crate::workout_repeat_service::WorkoutRepeatService;
@@ -24,7 +24,6 @@ use crate::workout_set_service::WorkoutSetService;
 
 mod auth_interceptor;
 mod auth_service;
-mod exercise_service;
 mod me_extension;
 mod proto;
 mod query_builder;

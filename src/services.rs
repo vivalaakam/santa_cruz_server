@@ -128,7 +128,7 @@ pub mod exercise {
                 name,
                 description,
             } = request.get_ref();
-            let original = self.get_exercise_by_id(&self.pool, *id, *user_id).await;
+            let original = ExerciseService::get_exercise_by_id(&self.pool, *id, *user_id).await;
             if original.is_none() {
                 return Err(Status::not_found(format!(
                     "object #{} not found",
@@ -152,8 +152,7 @@ pub mod exercise {
                 .execute(&self.pool)
                 .await
                 .expect("update_workout_repeat error");
-            self.return_exercise_by_id(rec.get::<i32, _>("id"), *user_id)
-                .await
+            self.return_exercise_by_id(*id, *user_id).await
         }
         async fn delete_exercise(
             &self,
@@ -162,7 +161,10 @@ pub mod exercise {
             let MeExtension { user_id } = &request.extensions().get::<MeExtension>().unwrap();
             let DeleteExerciseRequest { id } = request.get_ref();
             let mut query_builder = Exercise::query();
-            query_builder . where_raw ("((permissions ->> CAST(${index} as text))::integer > 0 OR (permissions ->> '0')::integer > 0)" , user_id) ;
+            query_builder.where_raw(
+                "(permissions ->> CAST(${index} as text))::integer > 1",
+                user_id,
+            );
             query_builder.where_eq("id", id);
             let sql = query_builder.delete_query();
             sqlx::query_with(sql.0.as_str(), sql.1)
